@@ -1,0 +1,59 @@
+---
+- name: Setting up ansible
+  hosts: all
+  become: yes
+  gather_facts: False
+  pre_tasks:
+    - name: Install python for Ansible
+      raw: test -e /usr/bin/python || (apt -y update && apt install -y python-minimal)
+      changed_when: False
+    - setup: # aka gather_facts
+
+- name: Installing and configuring Gitlab
+  hosts: all
+  become: yes
+  gather_facts: False
+  environment:
+    EXTERNAL_URL: "http://192.168.1.100"
+  tasks:
+    - name: Copying nameserver configuration
+      copy:
+        src: 50-vagrant.yaml
+        dest: /etc/netplan
+
+    - name: Apply netplan configuration
+      command: netplan apply  
+
+    - name: Update apt
+      apt:
+        update_cache: yes
+
+    - name: Install Gitlab dependancies
+      apt:
+        name: "{{ packages }}"
+        state: latest
+      vars:
+        packages:
+        - apt-transport-https
+        - openssh-server
+        - ca-certificates
+
+    - name: Downloading Gitlab Provisionary script
+      get_url:
+        url: https://packages.gitlab.com/install/repositories/gitlab/gitlab-ce/script.deb.sh
+        dest: /tmp
+        mode: 0755
+
+    - name: Running Gitlab's Provisionary script
+      shell: bash /tmp/script.deb.sh
+
+    - name: Installing Gitlab
+      apt:
+        name: "{{ packages }}"
+        state: latest
+      vars:
+        packages:
+        - gitlab-ce
+
+    - name: Running Gitlab's Provisionary script
+      shell: gitlab-ctl reconfigure
